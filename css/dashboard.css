@@ -1,0 +1,8 @@
+/* Dashboard-specific refinements */
+.insight-panel{min-height:300px}.chart-grid .panel{min-height:300px}
+
+/* K-Means visualization axis controls */
+#clusterXAxis,
+#clusterYAxis{
+  min-width:180px;
+}

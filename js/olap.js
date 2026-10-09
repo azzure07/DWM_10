@@ -1,0 +1,13 @@
+import {sum,avg,round,groupBy} from './utils.js';
+function agg(rows,dimension,measure,metric='sum'){
+ const g=groupBy(rows,dimension);return Object.entries(g).map(([key,a])=>({[dimension]:key,Records:a.length,[metric==='avg'?'Average':'Total'] : round(metric==='avg'?avg(a.map(r=>Number(r[measure]))):sum(a.map(r=>Number(r[measure]))),2)}));
+}
+export function olap(rows,mode,{dim1,dim2,dim3,measure}={}){
+ if(!dim1||!measure)return {title:'Select a dimension and measure',desc:'Choose fields to perform OLAP analysis.',rows:[],chart:{labels:[],values:[]}};
+ if(mode==='rollup'){const out=agg(rows,dim1,measure,'sum');return {title:`Roll-up: ${measure} by ${dim1}`,desc:`Aggregate ${measure} from row level to ${dim1} level.`,rows:out,chart:{labels:out.map(x=>x[dim1]),values:out.map(x=>x.Total)}}}
+ if(mode==='drill'&&dim2){const map={};rows.forEach(r=>{const k=`${r[dim1]}|||${r[dim2]}`;(map[k]??=[]).push(r)});const out=Object.entries(map).map(([k,a])=>{const [a1,a2]=k.split('|||');return {[dim1]:a1,[dim2]:a2,Records:a.length,Total:round(sum(a.map(r=>Number(r[measure]))),2)}});return {title:`Drill-down: ${dim1} × ${dim2}`,desc:'Move from a dimension level into a second dimension.',rows:out,chart:{labels:out.slice(0,30).map(x=>`${x[dim1]} / ${x[dim2]}`),values:out.slice(0,30).map(x=>x.Total)}}}
+ if(mode==='slice'){const candidates=[...new Set(rows.map(r=>r[dim1]))];const selected=candidates[0];const a=rows.filter(r=>String(r[dim1])===String(selected));return {title:`Slice: ${dim1} = ${selected}`,desc:`Filter the dataset to one member of ${dim1}.`,rows:a.slice(0,500),chart:{labels:[selected],values:[sum(a.map(r=>Number(r[measure])))]}}}
+ if(mode==='dice'&&dim2){const vals=[...new Set(rows.map(r=>r[dim1]))];const vals2=[...new Set(rows.map(r=>r[dim2]))];const selected1=vals[0],selected2=vals2[0];const a=rows.filter(r=>String(r[dim1])===String(selected1)&&String(r[dim2])===String(selected2));return {title:`Dice: ${dim1}=${selected1} AND ${dim2}=${selected2}`,desc:'Filter on two dimensions simultaneously.',rows:a,chart:{labels:[`${selected1}/${selected2}`],values:[sum(a.map(r=>Number(r[measure])))]}}}
+ if(mode==='cube'&&dim2&&dim3){const map={};rows.forEach(r=>{const k=`${r[dim1]}|||${r[dim2]}|||${r[dim3]}`;(map[k]??=[]).push(r)});const out=Object.entries(map).map(([k,a])=>{const [a1,a2,a3]=k.split('|||');return {[dim1]:a1,[dim2]:a2,[dim3]:a3,Records:a.length,Total:round(sum(a.map(r=>Number(r[measure]))),2)}});return {title:`Cube: ${dim1} × ${dim2} × ${dim3}`,desc:'Three-dimensional aggregation.',rows:out,chart:{labels:out.slice(0,30).map(x=>`${x[dim1]}/${x[dim2]}/${x[dim3]}`),values:out.slice(0,30).map(x=>x.Records)}}}
+ return {title:'OLAP',desc:'Select compatible fields.',rows:[],chart:{labels:[],values:[]}};
+}

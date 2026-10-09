@@ -1,0 +1,8 @@
+import {isBlank,mean,inferSchema} from './utils.js';
+export function missingSummary(rows){return rows.reduce((n,r)=>n+Object.values(r).filter(isBlank).length,0)}
+export function duplicateCount(rows){const seen=new Set();let n=0;for(const r of rows){const k=JSON.stringify(r,Object.keys(r).sort());if(seen.has(k))n++;else seen.add(k)}return n}
+export function removeDuplicates(rows){const seen=new Set();return rows.filter(r=>{const k=JSON.stringify(r,Object.keys(r).sort());if(seen.has(k))return false;seen.add(k);return true})}
+export function fillMissing(rows,schema=inferSchema(rows)){const modes={};for(const c of schema.categorical){const counts={};rows.forEach(r=>{if(!isBlank(r[c]))counts[r[c]]=(counts[r[c]]||0)+1});modes[c]=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]?.[0]??'Unknown'};const means=Object.fromEntries(schema.numeric.map(c=>[c,mean(rows,c)]));return rows.map(r=>{const x={...r};for(const c of schema.numeric)if(isBlank(x[c]))x[c]=Number(means[c].toFixed(4));for(const c of schema.categorical)if(isBlank(x[c]))x[c]=modes[c];return x})}
+export function normalizeNumeric(rows,schema=inferSchema(rows)){return rows.map(r=>{const x={...r};for(const c of schema.numeric){if(!isBlank(x[c])){const n=Number(String(x[c]).replace(/[,₹$€£%]/g,''));if(Number.isFinite(n))x[c]=n}}return x})}
+export function cleanAll(rows,schema=inferSchema(rows)){return removeDuplicates(fillMissing(normalizeNumeric(rows,schema),schema))}
+export function cleanReport(before,after,schema){return {before,after,removedDuplicates:before-after,missingBefore:missingSummary(before),missingAfter:missingSummary(after),columns:schema.columns.length}}
